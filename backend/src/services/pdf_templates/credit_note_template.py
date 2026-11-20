@@ -143,7 +143,7 @@ def _build_credit_note_html(
           <td>{product_name}</td>
           <td>{hsn}</td>
           <td>{source_number}</td>
-          <td class="right">{item.quantity}</td>
+          <td class="right">{Decimal(str(item.quantity)).normalize():f}</td>
           <td class="right">{_fmt_currency(float(item.unit_price or 0), currency)}</td>
           <td class="right">{_fmt_currency(float(item.taxable_amount or 0), currency)}</td>
           <td class="right">{_fmt_rate(float(item.gst_rate or 0))}%</td>

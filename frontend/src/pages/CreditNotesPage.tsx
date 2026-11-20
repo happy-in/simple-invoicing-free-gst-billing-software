@@ -35,6 +35,7 @@ type SelectedLineItem = {
   invoice: Invoice;
   item: Invoice['items'][number];
   productName: string;
+  wholeQuantity: boolean;
   quantityKey: string;
 };
 
@@ -331,6 +332,7 @@ export default function CreditNotesPage() {
             invoice,
             item,
             productName: matchedProduct?.name || `Product #${item.product_id}`,
+            wholeQuantity: matchedProduct?.allow_decimal === false || matchedProduct?.track_serials === true,
             quantityKey: createQuantityKey(invoice.id, item.id),
           };
         })
@@ -354,7 +356,7 @@ export default function CreditNotesPage() {
         invoice_item_id: line.item.id,
         quantity: Number(quantities[line.quantityKey] || 0),
       }))
-      .filter((line) => Number.isInteger(line.quantity) && line.quantity > 0);
+      .filter((line) => Number.isFinite(line.quantity) && line.quantity > 0);
   }, [creditNoteType, discountAmounts, quantities, selectedLineItems]);
 
   const previewTotal = useMemo(() => {
@@ -373,7 +375,7 @@ export default function CreditNotesPage() {
       if (!Number.isFinite(quantity) || quantity <= 0) {
         return sum;
       }
-      const ratio = quantity / Math.max(line.item.quantity, 1);
+      const ratio = line.item.quantity > 0 ? quantity / line.item.quantity : 0;
       return sum + (line.item.line_total * ratio);
     }, 0);
   }, [creditNoteType, discountAmounts, quantities, selectedLineItems]);
@@ -823,7 +825,7 @@ export default function CreditNotesPage() {
                             type="number"
                             min={0}
                             max={creditNoteType === 'discount' ? line.item.line_total : line.item.quantity}
-                            step={creditNoteType === 'discount' ? '0.01' : '1'}
+                            step={creditNoteType === 'discount' ? '0.01' : line.wholeQuantity ? '1' : '0.001'}
                             value={creditNoteType === 'discount' ? (discountAmounts[line.quantityKey] || '') : (quantities[line.quantityKey] || '')}
                             onChange={(event) => {
                               if (creditNoteType === 'discount') {

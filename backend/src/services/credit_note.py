@@ -47,7 +47,7 @@ def _supplier_return_note(credit_note_number: str) -> str:
     return f"Returned to supplier on credit note {credit_note_number}"
 
 
-def _pro_rata(amount: Decimal, before: Decimal, quantity: int, whole: Decimal) -> Decimal:
+def _pro_rata(amount: Decimal, before: Decimal, quantity: Decimal, whole: Decimal) -> Decimal:
     """A return's share of a line amount, given how many units earlier returns took.
 
     The difference of two running totals, so a line returned in parts adds back
@@ -345,6 +345,18 @@ def create_credit_note(
                 status_code=400,
                 detail=f"Invoice item {cn_item.invoice_item_id} does not belong to invoice {cn_item.invoice_id}",
             )
+        quantity = cn_item.quantity
+        if quantity is not None and quantity != quantity.to_integral_value():
+            product_query = db.query(Product).filter(Product.id == ii.product_id)
+            if company_id is not None:
+                product_query = product_query.filter(company_scope(Product.company_id, company_id))
+            product = product_query.first()
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Product {ii.product_id} not found")
+            if not product.allow_decimal or product.track_serials:
+                raise HTTPException(
+                    status_code=400, detail=f"{product.name} requires a whole-number credit quantity"
+                )
         if payload.credit_note_type != "discount" and cn_item.quantity > ii.quantity:
             raise HTTPException(
                 status_code=400,
@@ -358,7 +370,7 @@ def create_credit_note(
     # a placeholder, not units. A line can be listed twice in one request.
     returned_before: dict[int, Decimal] = {}
     if payload.credit_note_type != "discount":
-        requested_qty: dict[int, int] = {}
+        requested_qty: dict[int, Decimal] = {}
         for cn_item in payload.items:
             item_id = cn_item.invoice_item_id
             if item_id not in returned_before:
@@ -440,7 +452,7 @@ def create_credit_note(
         else:
             # What the line charged, not its stored unit_price: on a tax-inclusive
             # invoice that price holds the tax, and it is always before discount.
-            quantity = int(cn_item.quantity or 0)
+            quantity = cn_item.quantity or Decimal("0")
             line_taxable = Decimal(str(ii.taxable_amount or 0))
             line_tax = Decimal(str(ii.tax_amount or 0))
             if not line_taxable and not line_tax:

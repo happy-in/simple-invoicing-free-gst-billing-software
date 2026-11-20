@@ -454,9 +454,9 @@ def gst_seller(client, db_session):
     return company
 
 
-def _sale(client, line, *, place_of_supply=None, **extra):
+def _sale(client, line, *, place_of_supply=None, product_id=None, **extra):
     """A sale of one line to an unregistered buyer, dated a few days ago."""
-    product = _create_product(client, f"SKU-{uuid4().hex[:8]}", "Widget", hsn_sac="8471")
+    product = product_id or _create_product(client, f"SKU-{uuid4().hex[:8]}", "Widget", hsn_sac="8471")
     payload = {
         "voucher_type": "sales",
         "ledger_id": _create_ledger(client, f"Walk-in {uuid4().hex[:8]}"),
@@ -769,3 +769,45 @@ def test_date_to_at_the_end_of_the_supported_range_does_not_overflow(client, see
 def test_page_beyond_the_supported_range_returns_422(client, seeded):
     response = client.get("/api/credit-notes/", params={"page": 9223372036854775807})
     assert response.status_code == 422
+
+
+def test_fractional_return_round_trip_and_cumulative_limit(client, db_session):
+    product_response = client.post("/api/products/", json={
+        "sku": "FRACTIONAL-CREDIT",
+        "name": "Test fabric",
+        "price": 100,
+        "allow_decimal": True,
+        "initial_quantity": 10,
+    })
+    assert product_response.status_code == 200, product_response.text
+    product_id = product_response.json()["id"]
+    invoice = _sale(client, {"quantity": 2.5, "unit_price": 100}, product_id=product_id)
+    assert _stock(db_session, product_id) == 7.5
+
+    response = _note(client, invoice, quantity=1.125)
+    assert response.status_code == 201, response.text
+    note = response.json()
+    assert note["items"][0]["quantity"] == 1.125
+    assert note["total_amount"] == 112.5
+    assert _stock(db_session, product_id) == 8.625
+    assert _note(client, invoice, quantity=1.376).status_code == 400
+    assert _note(client, invoice, quantity=0.0011).status_code == 422
+
+    last = _note(client, invoice, quantity=1.375)
+    assert last.status_code == 201, last.text
+    assert note["total_amount"] + last.json()["total_amount"] == invoice["total_amount"]
+    assert _stock(db_session, product_id) == 10
+
+    cancelled = client.post(f"/api/credit-notes/{note['id']}/cancel")
+    assert cancelled.status_code == 200, cancelled.text
+    assert _stock(db_session, product_id) == 8.875
+
+
+def test_fractional_return_rejects_whole_number_product(client, db_session):
+    invoice = _sale(client, {"quantity": 2, "unit_price": 100})
+    product_id = invoice["items"][0]["product_id"]
+    before = _stock(db_session, product_id)
+    response = _note(client, invoice, quantity=1.5)
+    assert response.status_code == 400, response.text
+    assert "whole-number credit quantity" in response.json()["detail"]
+    assert _stock(db_session, product_id) == before
