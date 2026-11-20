@@ -38,7 +38,10 @@ from src.core.document_limits import MONEY_STORAGE_CUTOFF, QUANTITY_STORAGE_CUTO
 from src.core.validation import hsn_sac_warning, normalize_hsn_sac
 from src.services.serial_service import SerialManager
 
+from src.api.routes.product_bulk_updates import router as bulk_update_router
+
 router = APIRouter()
+router.include_router(bulk_update_router)
 
 
 def _is_whole_number(value: float) -> bool:
@@ -777,7 +780,7 @@ def update_product_with_inventory(
                 Inventory.product_id == product_id,
                 Inventory.company_id == active_company.id,
             )
-            .first()
+            .with_for_update().first()
         )
         # Setting stock outright would leave a tracked product with a quantity
         # no set of serials backs. It has to move through /inventory/adjust.
@@ -1102,7 +1105,7 @@ def _import_csv_from_content(content: bytes, db: Session, active_company: Compan
                         Inventory.product_id == existing.id,
                         Inventory.company_id == active_company.id,
                     )
-                    .first()
+                    .with_for_update().first()
                 )
                 if inv:
                     inv.quantity = Decimal(str(stock))

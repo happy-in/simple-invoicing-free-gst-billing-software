@@ -72,7 +72,7 @@ def adjust_inventory(
     inventory = db.query(Inventory).filter(
         Inventory.product_id == payload.product_id,
         Inventory.company_id == active_company.id,
-    ).first()
+    ).with_for_update().first()
     if not inventory:
         inventory = Inventory(company_id=active_company.id, product_id=payload.product_id, quantity=0)
         db.add(inventory)

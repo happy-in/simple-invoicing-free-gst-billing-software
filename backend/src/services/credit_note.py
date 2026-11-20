@@ -67,7 +67,7 @@ def _change_inventory_quantity(
     inventory_query = db.query(Inventory).filter(Inventory.product_id == product_id)
     if company_id is not None:
         inventory_query = inventory_query.filter(company_scope(Inventory.company_id, company_id))
-    inventory = inventory_query.first()
+    inventory = inventory_query.with_for_update().first()
     if not inventory:
         inventory = Inventory(product_id=product_id, quantity=0, company_id=company_id)
         db.add(inventory)

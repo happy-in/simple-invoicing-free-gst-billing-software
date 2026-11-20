@@ -21,6 +21,7 @@ import ProductFormModal from './catalogue/ProductFormModal';
 import type { BackfillTarget } from './catalogue/ProductFormModal';
 import StockAdjustModal from './catalogue/StockAdjustModal';
 import SerialHistoryDrawer from './catalogue/SerialHistoryDrawer';
+import BulkUpdateModal from './catalogue/BulkUpdateModal';
 import ImportModal from './catalogue/ImportModal';
 import { exportCatalogueCsv, exportCataloguePdf } from './catalogue/exports';
 import { isLowStock, isSerialFilter, rowEditFrom } from './catalogue/types';
@@ -103,6 +104,7 @@ export default function CataloguePage() {
     null,
   );
   const [importOpen, setImportOpen] = useState(false);
+  const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [deleteRow, setDeleteRow] = useState<CatalogueRow | null>(null);
   const [exporting, setExporting] = useState<'csv' | 'pdf' | null>(null);
 
@@ -425,6 +427,10 @@ export default function CataloguePage() {
                 <FileText size={15} aria-hidden="true" />
                 Report
               </button>
+              <button type="button" className="button button--ghost button--small"
+                onClick={() => setBulkUpdateOpen(true)}>
+                Bulk update
+              </button>
               <button
                 type="button"
                 className="button button--ghost button--small"
@@ -626,6 +632,17 @@ export default function CataloguePage() {
           onCancel={() => setBackfill(null)}
         />
       ) : null}
+
+      {bulkUpdateOpen && (
+        <BulkUpdateModal
+          onClose={() => setBulkUpdateOpen(false)}
+          onSaved={(count) => {
+            setBulkUpdateOpen(false);
+            setSuccess(count === 1 ? '1 product updated.' : count + ' products updated.');
+            void loadData();
+          }}
+        />
+      )}
 
       {importOpen ? (
         <ImportModal
