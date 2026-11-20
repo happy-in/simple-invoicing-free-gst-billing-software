@@ -19,6 +19,11 @@ def money(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
+def india_now() -> datetime:
+    """Indian wall-clock time for fields stored as naive local datetimes."""
+    return datetime.now(IST).replace(tzinfo=None)
+
+
 def india_today() -> date:
     """Today's date in India, which is what a GST document is dated by."""
     return datetime.now(IST).date()

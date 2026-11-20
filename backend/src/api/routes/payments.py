@@ -1,4 +1,3 @@
-from datetime import datetime
 from html import escape
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from src.api.deps import get_active_company, get_current_user, require_company_role
 from src.core.analytics import distinct_id_for, track
 from src.db.session import get_db
+from src.services.gst_tax_service import india_now
 from src.models.buyer import Buyer as Ledger
 from src.models.company_account import CompanyAccount
 from src.models.company import CompanyProfile
@@ -130,7 +130,7 @@ def create_payment(
     if payload.account_id is not None:
       selected_account = _get_active_account(db, payload.account_id, company_id)
 
-    payment_date = payload.date or datetime.utcnow()
+    payment_date = payload.date or india_now()
     payment_day = payment_date.date() if hasattr(payment_date, "date") else payment_date
 
     active_fy = get_active_fy(db, company_id=company_id)

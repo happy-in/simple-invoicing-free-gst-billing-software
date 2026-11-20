@@ -41,7 +41,7 @@ from src.services.invoice_payments import auto_allocate_outstanding_invoices, bu
 from src.services.pdf_templates import _build_day_book_html, _build_statement_html  # noqa: F401
 from src.services.pdf_templates.builders import _e
 from src.services.share_documents import get_ledger as get_shared_ledger, render_statement_pdf
-from src.services.gst_tax_service import b2cl_limit, gstr1_section, invoice_filing_pos, is_b2cl_invoice, is_interstate_pos, needs_place_of_supply
+from src.services.gst_tax_service import b2cl_limit, gstr1_section, india_now, invoice_filing_pos, is_b2cl_invoice, is_interstate_pos, needs_place_of_supply
 from src.services.uqc import hsn_uqc
 from src.core.validation import GSTIN_REGEX, GSTR1_DOCUMENT_NUMBER_RULE, HSN_SAC_REGEX, is_gst_rate_slab, is_gstr1_document_number, is_known_hsn_sac
 from src.services.company_access import company_scope, legacy_default_company
@@ -134,7 +134,7 @@ def _default_opening_balance_date(db: Session, company_id: int | None = None) ->
   active_fy = get_active_fy(db, company_id=company_id)
   if active_fy is not None:
     return datetime.combine(active_fy.start_date, time.min), active_fy.id
-  return datetime.utcnow(), None
+  return india_now(), None
 
 
 def _sync_opening_balance(
