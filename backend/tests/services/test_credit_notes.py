@@ -220,6 +220,11 @@ class TestRecomputeCreditStatus:
 # create_credit_note service validation
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _mock_locked_invoices(db, invoices):
+    query = db.query.return_value.filter.return_value
+    query.order_by.return_value.with_for_update.return_value.populate_existing.return_value.all.return_value = invoices
+
+
 class TestCreateCreditNoteValidation:
     """Test that service raises HTTPException for invalid inputs."""
 
@@ -245,7 +250,7 @@ class TestCreateCreditNoteValidation:
         # First query returns ledger
         db.query.return_value.filter.return_value.first.return_value = ledger
         # Second query (invoices) returns list
-        db.query.return_value.filter.return_value.all.return_value = [inv]
+        _mock_locked_invoices(db, [inv])
 
         with pytest.raises(Exception) as exc:
             create_credit_note(self._base_payload(), db, current_user_id=1)
@@ -257,7 +262,7 @@ class TestCreateCreditNoteValidation:
 
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
-        db.query.return_value.filter.return_value.all.return_value = [inv]
+        _mock_locked_invoices(db, [inv])
 
         with pytest.raises(Exception) as exc:
             create_credit_note(self._base_payload(), db, current_user_id=1)
@@ -275,7 +280,8 @@ class TestCreateCreditNoteValidation:
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
         # invoices query
-        db.query.return_value.filter.return_value.all.side_effect = [[inv], [ii]]
+        _mock_locked_invoices(db, [inv])
+        db.query.return_value.filter.return_value.all.return_value = [ii]
 
         with pytest.raises(Exception) as exc:
             create_credit_note(payload, db, current_user_id=1)
@@ -293,7 +299,8 @@ class TestCreateCreditNoteValidation:
 
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
-        db.query.return_value.filter.return_value.all.side_effect = [[inv], [ii]]
+        _mock_locked_invoices(db, [inv])
+        db.query.return_value.filter.return_value.all.return_value = [ii]
         # Simulate cumulative already-credited = 8
         db.query.return_value.join.return_value.filter.return_value.scalar.return_value = 8
 
@@ -315,7 +322,8 @@ class TestCreateCreditNoteValidation:
 
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
-        db.query.return_value.filter.return_value.all.side_effect = [[inv], [ii]]
+        _mock_locked_invoices(db, [inv])
+        db.query.return_value.filter.return_value.all.return_value = [ii]
         db.query.return_value.join.return_value.filter.return_value.scalar.return_value = 0
 
         with patch("src.services.credit_note.get_active_fy", return_value=SimpleNamespace(id=1)), \
@@ -347,7 +355,8 @@ class TestCreateCreditNoteValidation:
 
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
-        db.query.return_value.filter.return_value.all.side_effect = [[inv], [ii]]
+        _mock_locked_invoices(db, [inv])
+        db.query.return_value.filter.return_value.all.return_value = [ii]
         db.query.return_value.join.return_value.filter.return_value.scalar.return_value = 0
 
         with patch("src.services.credit_note.get_active_fy", return_value=SimpleNamespace(id=1)), \
@@ -386,7 +395,8 @@ class TestCreateCreditNoteValidation:
         ii.line_total = Decimal(line_total)
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
-        db.query.return_value.filter.return_value.all.side_effect = [[inv], [ii]]
+        _mock_locked_invoices(db, [inv])
+        db.query.return_value.filter.return_value.all.return_value = [ii]
         db.query.return_value.join.return_value.filter.return_value.scalar.return_value = Decimal(
             already_credited
         )
@@ -470,7 +480,8 @@ class TestCreateCreditNoteValidation:
 
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
-        db.query.return_value.filter.return_value.all.side_effect = [[inv], [ii]]
+        _mock_locked_invoices(db, [inv])
+        db.query.return_value.filter.return_value.all.return_value = [ii]
         db.query.return_value.join.return_value.filter.return_value.scalar.return_value = 0
 
         with patch("src.services.credit_note.get_active_fy", return_value=SimpleNamespace(id=1)), \
@@ -617,7 +628,8 @@ class TestInwardCreditNotes:
         if product is None:
             product = SimpleNamespace(id=22, name="Widget", track_serials=False, maintain_inventory=True)
         db.query.return_value.filter.return_value.first.side_effect = [ledger, duplicate, product]
-        db.query.return_value.filter.return_value.all.side_effect = [invoices, invoice_items]
+        _mock_locked_invoices(db, invoices)
+        db.query.return_value.filter.return_value.all.return_value = invoice_items
         db.query.return_value.join.return_value.filter.return_value.scalar.return_value = 0
         return db
 
@@ -637,7 +649,7 @@ class TestInwardCreditNotes:
 
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
-        db.query.return_value.filter.return_value.all.return_value = [sales, purchase]
+        _mock_locked_invoices(db, [sales, purchase])
 
         with pytest.raises(Exception) as exc:
             create_credit_note(payload, db, current_user_id=1)
@@ -657,7 +669,7 @@ class TestInwardCreditNotes:
 
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
-        db.query.return_value.filter.return_value.all.return_value = [inv]
+        _mock_locked_invoices(db, [inv])
 
         with pytest.raises(Exception) as exc:
             create_credit_note(payload, db, current_user_id=1)
@@ -692,7 +704,8 @@ class TestInwardCreditNotes:
 
         db = MagicMock()
         db.query.return_value.filter.return_value.first.return_value = ledger
-        db.query.return_value.filter.return_value.all.side_effect = [[inv], [ii]]
+        _mock_locked_invoices(db, [inv])
+        db.query.return_value.filter.return_value.all.return_value = [ii]
         db.query.return_value.join.return_value.filter.return_value.scalar.return_value = 0
 
         payload = CreditNoteCreate(

@@ -205,12 +205,9 @@ def create_credit_note(
     invoices_query = db.query(Invoice).filter(Invoice.id.in_(payload.invoice_ids))
     if company_id is not None:
         invoices_query = invoices_query.filter(company_scope(Invoice.company_id, company_id))
-    invoices = invoices_query.all()
-    if any(invoice.tcs_section_id for invoice in invoices):
-        # Serialise proportional TCS reversals (each reads what earlier notes reversed),
-        # in id order so two notes over the same invoices cannot deadlock, and re-read
-        # the rows once the lock is held.
-        invoices = invoices_query.order_by(Invoice.id).with_for_update().populate_existing().all()
+    # Read the latest invoice status under the same row lock used by edits and
+    # cancellations. Lock multiple invoices in ID order, including TCS reversals.
+    invoices = invoices_query.order_by(Invoice.id).with_for_update().populate_existing().all()
     found_ids = {inv.id for inv in invoices}
     missing = set(payload.invoice_ids) - found_ids
     if missing:

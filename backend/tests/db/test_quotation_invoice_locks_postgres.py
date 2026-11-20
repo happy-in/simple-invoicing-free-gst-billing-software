@@ -213,3 +213,36 @@ def test_a_restore_that_waited_through_an_edit_leaves_the_quote_alone(app_db, si
     assert restore.status_code == 200, restore.text[:300]
     assert _stock(app_db, tenant["product"]) == stock_before - 2
     assert _status_of(app_db, quote["id"]) == "open"
+
+
+def test_credit_note_waits_for_non_tcs_invoice_cancellation(app_db, signed_in):
+    client = TestClient(app)
+    tenant = _seed_company(client, signed_in, app_db, "alice@alpha.example", "Alpha Traders", "ALPHA-1")
+    invoice = iso._create_invoice(client, tenant["ledger"], tenant["product"])
+    stock_before = _stock(app_db, tenant["product"])
+    payload = {
+        "ledger_id": tenant["ledger"],
+        "invoice_ids": [invoice["id"]],
+        "items": [{
+            "invoice_id": invoice["id"],
+            "invoice_item_id": invoice["items"][0]["id"],
+            "quantity": 1,
+        }],
+    }
+
+    def cancel_while_holding(owner):
+        owner.execute(
+            text("UPDATE invoices SET status = 'cancelled' WHERE id = :id"), {"id": invoice["id"]}
+        )
+
+    [credit] = _pile_up_behind_a_lock(
+        app_db, LOCK_INVOICE, invoice["id"],
+        [_call("POST", "/api/credit-notes/", json=payload)],
+        while_held=cancel_while_holding,
+    )
+
+    assert credit.status_code == 400, credit.text
+    assert "Cannot credit cancelled invoices" in credit.json()["detail"]
+    assert _stock(app_db, tenant["product"]) == stock_before
+    with app_db.owner_engine.connect() as owner:
+        assert owner.execute(text("SELECT count(*) FROM credit_notes")).scalar_one() == 0
