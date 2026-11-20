@@ -81,6 +81,11 @@ def create_bom_entry(
     if not component:
         raise HTTPException(status_code=404, detail="Component product not found")
 
+    quantity = Decimal(str(bom_create.quantity_required))
+    error = bom_service.whole_component_quantity_error(component, quantity)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
     # Check for circular BOM
     try:
         bom_service.validate_no_circular_bom(
@@ -107,7 +112,7 @@ def create_bom_entry(
         company_id=active_company.id,
         product_id=bom_create.product_id,
         component_product_id=bom_create.component_product_id,
-        quantity_required=Decimal(str(bom_create.quantity_required)),
+        quantity_required=quantity,
     )
 
     db.add(bom_entry)
@@ -139,7 +144,18 @@ def update_bom_entry(
     if not bom_entry:
         raise HTTPException(status_code=404, detail="BOM entry not found")
 
-    bom_entry.quantity_required = Decimal(str(bom_update.quantity_required))
+    component = db.query(Product).filter(
+        Product.id == bom_entry.component_product_id,
+        Product.company_id == active_company.id,
+    ).first()
+    if not component:
+        raise HTTPException(status_code=404, detail="Component product not found")
+
+    quantity = Decimal(str(bom_update.quantity_required))
+    error = bom_service.whole_component_quantity_error(component, quantity)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    bom_entry.quantity_required = quantity
     db.commit()
     db.refresh(bom_entry)
 

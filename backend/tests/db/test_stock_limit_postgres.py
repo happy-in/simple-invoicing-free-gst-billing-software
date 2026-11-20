@@ -69,9 +69,17 @@ def _state(app_db):
 
 
 def _add_component(tenant, product):
+    component = tenant["client"].post("/api/products/", json={
+        "sku": "DECIMAL-COMPONENT",
+        "name": "Decimal component",
+        "price": 1,
+        "initial_quantity": 10,
+        "allow_decimal": True,
+    })
+    assert component.status_code == 200, component.text
     response = tenant["client"].post("/api/bom/", json={
         "product_id": product,
-        "component_product_id": tenant["product"],
+        "component_product_id": component.json()["id"],
         "quantity_required": 1,
     })
     assert response.status_code == 201, response.text

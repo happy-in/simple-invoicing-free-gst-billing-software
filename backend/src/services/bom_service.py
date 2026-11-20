@@ -169,6 +169,12 @@ def calculate_bom_cost_recursive(
     return cost
 
 
+def whole_component_quantity_error(component: Product, quantity: Decimal) -> str | None:
+    if not component.allow_decimal and quantity != quantity.to_integral_value():
+        return f"{component.name} needs {quantity:f}, which must be a whole number for this product."
+    return None
+
+
 def get_bom_requirements(
     db: Session,
     company_id: int,
@@ -301,19 +307,16 @@ def execute_production(
     requirements = get_bom_requirements(db, company_id, product_id, quantity)
 
     if requirements:
-        serial_component = (
-            db.query(Product)
-            .filter(
-                Product.id.in_(requirements.keys()),
-                Product.track_serials.is_(True),
-            )
-            .first()
-        )
-        if serial_component:
-            return {
-                "success": False,
-                "message": "Serial-tracked products can't be produced yet",
-            }
+        components = db.query(Product).filter(Product.id.in_(requirements)).all()
+        for component in components:
+            if component.track_serials:
+                return {
+                    "success": False,
+                    "message": "Serial-tracked products can't be produced yet",
+                }
+            error = whole_component_quantity_error(component, requirements[component.id])
+            if error:
+                return {"success": False, "message": f"Production blocked: {error}"}
 
     # Validate inventory availability
     is_available, error_msg = validate_bom_availability(db, company_id, product_id, quantity)

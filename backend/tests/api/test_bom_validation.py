@@ -13,9 +13,10 @@ from src.models.bom import BillOfMaterial
 from src.models.company import CompanyProfile
 from src.models.inventory import Inventory
 from src.models.product import Product
+from src.models.production_transaction import ProductionTransaction
 
 
-def _make_setup(db_session):
+def _make_setup(db_session, *, component_allows_decimal=True):
     """Create a company, a producable product, a component and stock."""
     company = CompanyProfile(name="BOM Validation Co", address="123 Test St")
     db_session.add(company)
@@ -34,6 +35,7 @@ def _make_setup(db_session):
         sku="BOMVALRAW01",
         name="Raw Material",
         price=Decimal("2"),
+        allow_decimal=component_allows_decimal,
     )
     db_session.add_all([finished, component])
     db_session.flush()
@@ -97,6 +99,7 @@ def test_bom_create_accepts_fractional_quantity(client, db_session):
         company_id=finished.company_id,
         sku="BOMVALRAW02",
         name="Second Material",
+        allow_decimal=True,
         price=Decimal("3"),
     )
     db_session.add(other)
@@ -173,6 +176,7 @@ def test_bom_create_accepts_quantity_just_below_storage_cutoff(client, db_sessio
         company_id=finished.company_id,
         sku="BOMVALRAW04",
         name="Near Limit Material",
+        allow_decimal=True,
         price=Decimal("3"),
     )
     db_session.add(other)
@@ -263,3 +267,52 @@ def test_produce_skips_components_that_do_not_keep_stock(client, db_session):
     assert stock(widget.id).quantity == Decimal("98")
     assert stock(finished.id).quantity == Decimal("1")
     assert stock(labour.id) is None
+
+
+@pytest.mark.parametrize("method", ["post", "put"])
+def test_bom_rejects_fractional_quantity_for_whole_number_component(client, db_session, method):
+    finished, component, entry = _make_setup(db_session, component_allows_decimal=False)
+    if method == "post":
+        db_session.delete(entry)
+        db_session.commit()
+        response = client.post("/api/bom/", json={
+            "product_id": finished.id,
+            "component_product_id": component.id,
+            "quantity_required": 0.5,
+        })
+        expected_count = 0
+    else:
+        response = client.put(f"/api/bom/{entry.id}", json={"quantity_required": 0.5})
+        expected_count = 1
+    assert response.status_code == 400, response.text
+    assert "Raw Material needs 0.5" in response.json()["detail"]
+    db_session.expire_all()
+    entries = db_session.query(BillOfMaterial).all()
+    assert len(entries) == expected_count
+    if entries:
+        assert entries[0].quantity_required == Decimal("1")
+
+
+def test_production_with_fractional_legacy_requirement_leaves_stock_unchanged(client, db_session):
+    finished, component, entry = _make_setup(db_session, component_allows_decimal=False)
+    entry.quantity_required = Decimal("0.5")
+    db_session.commit()
+
+    response = client.post(
+        "/api/inventory/produce", json={"product_id": finished.id, "quantity": 1}
+    )
+
+    assert response.status_code == 400, response.text
+    assert "Raw Material needs 0.500" in response.json()["detail"]
+    db_session.expire_all()
+    stock = {row.product_id: row.quantity for row in db_session.query(Inventory)}
+    assert stock == {component.id: Decimal("5")}
+    assert db_session.query(ProductionTransaction).count() == 0
+
+    response = client.post(
+        "/api/inventory/produce", json={"product_id": finished.id, "quantity": 2}
+    )
+    assert response.status_code == 200, response.text
+    db_session.expire_all()
+    stock = {row.product_id: row.quantity for row in db_session.query(Inventory)}
+    assert stock == {component.id: Decimal("4"), finished.id: Decimal("2")}

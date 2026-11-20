@@ -442,7 +442,7 @@ class TestExecuteProductionGuards:
             db_session, company.id, "DECIMAL", is_producable=True, allow_decimal=True
         )
         raw_a = make_product(db_session, company.id, "RAW-A", price="1")
-        raw_b = make_product(db_session, company.id, "RAW-B", price="1")
+        raw_b = make_product(db_session, company.id, "RAW-B", price="1", allow_decimal=True)
         add_component(db_session, company.id, whole_product.id, raw_a.id, "1")
         add_component(db_session, company.id, decimal_product.id, raw_b.id, "1")
         make_inventory(db_session, company.id, raw_a.id, "10")
