@@ -187,13 +187,7 @@ export default function EmailHistoryPage() {
             )}
             {!isLoading && data?.items.map((log: EmailLog) => (
               <div key={log.id}>
-                <div
-                  className="invoice-row"
-                  style={{ cursor: log.error_message ? 'pointer' : 'default' }}
-                  onClick={() => log.error_message
-                    ? setExpandedError(expandedError === log.id ? null : log.id)
-                    : undefined}
-                >
+                <div className="invoice-row">
                   <div className="invoice-row__meta">
                     <strong>{log.subject}</strong>
                     <span className="table-subtext">
@@ -211,12 +205,22 @@ export default function EmailHistoryPage() {
                       {log.status === 'sent' ? 'Sent' : log.status === 'sending' ? 'Sending' : 'Failed'}
                     </span>
                     {log.error_message && (
-                      <span className="table-subtext">tap to {expandedError === log.id ? 'hide' : 'show'} error</span>
+                      <button
+                        type="button"
+                        className="button button--ghost button--small"
+                        aria-expanded={expandedError === log.id}
+                        aria-controls={`email-error-${log.id}`}
+                        onClick={() => setExpandedError(expandedError === log.id ? null : log.id)}
+                      >
+                        {expandedError === log.id ? 'Hide error' : 'Show error'}
+                      </button>
                     )}
                   </div>
                 </div>
-                {expandedError === log.id && log.error_message && (
+                {log.error_message && (
                   <div
+                    id={`email-error-${log.id}`}
+                    hidden={expandedError !== log.id}
                     style={{
                       padding: '8px 16px',
                       background: 'var(--color-surface-raised)',
