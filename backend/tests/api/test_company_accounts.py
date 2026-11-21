@@ -351,3 +351,22 @@ def test_update_refuses_opening_balance_over_the_upper_bound(client):
     )
     assert response.status_code == 422, response.text
     assert response.json()["detail"][0]["loc"] == ["body", "opening_balance"]
+
+
+def test_payment_can_keep_its_deactivated_account_but_cannot_move_into_one(client):
+    ledger = client.post("/api/ledgers/", json=_ledger_payload("Historic ledger", "27ABCDE1234F1Z0"))
+    account = client.post("/api/company-accounts/", json={"account_type": "cash", "display_name": "Old till"})
+    assert ledger.status_code == account.status_code == 200
+    ledger_id, account_id = ledger.json()["id"], account.json()["id"]
+    values = {"voucher_type": "receipt", "amount": 500, "account_id": account_id}
+    receipt = client.post("/api/payments/", json={"ledger_id": ledger_id, **values})
+    unallocated = client.post("/api/payments/", json={"ledger_id": ledger_id, **values, "account_id": None})
+    assert receipt.status_code == unallocated.status_code == 200
+    assert client.delete(f"/api/company-accounts/{account_id}").status_code == 200
+
+    updated = client.put(f"/api/payments/{receipt.json()['id']}", json={**values, "notes": "Corrected"})
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["account_id"] == account_id
+    assert updated.json()["notes"] == "Corrected"
+    assert client.put(f"/api/payments/{unallocated.json()['id']}", json=values).status_code == 404
+    assert client.post("/api/payments/", json={"ledger_id": ledger_id, **values}).status_code == 404

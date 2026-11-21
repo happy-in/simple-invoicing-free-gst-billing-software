@@ -313,9 +313,8 @@ def update_payment(
                 detail="Allocated total cannot exceed the receipt/payment amount",
             )
 
-    selected_account = None
-    if payload.account_id is not None:
-        selected_account = _get_active_account(db, payload.account_id, company_id)
+    if payload.account_id is not None and payload.account_id != payment.account_id:
+        _get_active_account(db, payload.account_id, company_id)
 
     # The payment's financial year and number series are fixed at creation
     # and are not regenerated on edit, so a date change that would move the
@@ -345,7 +344,7 @@ def update_payment(
 
     payment.voucher_type = payload.voucher_type
     payment.amount = payload.amount
-    payment.account_id = selected_account.id if selected_account else None
+    payment.account_id = payload.account_id
     if payload.date is not None:
         payment.date = payload.date
     payment.mode = payload.mode.strip() if payload.mode else None
