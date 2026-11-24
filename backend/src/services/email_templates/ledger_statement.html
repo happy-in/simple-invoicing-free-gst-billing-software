@@ -6,9 +6,10 @@
     ledger_name     (str)         — Party / ledger name
     date_from       (str)         — Statement period start date, e.g. "01 Jan 2026"
     date_to         (str)         — Statement period end date, e.g. "31 Mar 2026"
-    total_invoices  (str|number)  — Sum of all invoices in the period, e.g. "50,000.00"
-    total_payments  (str|number)  — Sum of all payments in the period, e.g. "42,500.00"
-    balance         (str|number)  — Net outstanding balance (invoices − payments), e.g. "7,500.00"
+    total_invoices  (str|number)  — Formatted sum of invoices, e.g. "₹50,000.00"
+    total_payments  (str|number)  — Formatted sum of payments, e.g. "₹42,500.00"
+    balance_label   (str)         — "Balance due" or "In credit"
+    balance         (str|number)  — Formatted net balance, e.g. "₹7,500.00"
     message         (str|None)    — Optional custom message from the sender
 #}
 {% extends "base.html" %}

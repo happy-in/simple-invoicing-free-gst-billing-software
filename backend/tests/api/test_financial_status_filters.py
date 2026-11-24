@@ -258,7 +258,7 @@ def test_statement_email_uses_same_active_only_statement_math(db_session):
     assert len(build_kwargs["entries"]) == 3
 
     render_kwargs = fake_template.render.call_args.kwargs
-    assert render_kwargs["total_invoices"] == "40.00"
+    assert render_kwargs["total_invoices"] == "₹40.00"
 
 
 def test_ledger_statement_supports_signed_opening_balance_entries(db_session):
@@ -363,7 +363,7 @@ def test_payment_reminder_ignores_cancelled_documents_and_cancelled_last_payment
         ))
 
     render_kwargs = fake_template.render.call_args.kwargs
-    assert render_kwargs["outstanding_balance"] == "70.00"
+    assert render_kwargs["outstanding_balance"] == "₹70.00"
     assert render_kwargs["last_payment_date"] == "20 Jan 2026"
     assert render_kwargs["unpaid_invoices"] == [
         {
@@ -420,7 +420,7 @@ def test_payment_reminder_lists_remaining_amount_not_full_amount(db_session):
     render_kwargs = fake_template.render.call_args.kwargs
     # Total sales 480 minus credit note 10 minus all receipts 180; the top
     # level balance is unchanged by this fix and still counts every receipt.
-    assert render_kwargs["outstanding_balance"] == "290.00"
+    assert render_kwargs["outstanding_balance"] == "₹290.00"
     assert render_kwargs["unpaid_invoices"] == [
         {
             "invoice_number": partial_invoice.invoice_number,

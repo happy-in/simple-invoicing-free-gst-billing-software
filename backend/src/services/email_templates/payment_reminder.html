@@ -4,14 +4,14 @@
 
   Variables (in addition to base.html variables):
     buyer_name          (str)         — Buyer / party name
-    outstanding_balance (str|number)  — Total outstanding amount, e.g. "8,750.00"
+    outstanding_balance (str|number)  — Formatted outstanding amount, e.g. "₹8,750.00"
     last_payment_date   (str|None)    — Date of the most recent payment; omitted if none
     message             (str|None)    — Optional custom message from the sender
     unpaid_invoices     (list)        — List of dicts with keys:
                                           invoice_number (str)
                                           invoice_date   (str)
                                           due_date       (str|None)
-                                          amount         (str|number)
+                                          amount         (str|number) — Formatted amount, e.g. "₹8,750.00"
     share_url           (str|None)    — The ledger's statement page, where the UPI offer lives
 #}
 {% extends "base.html" %}

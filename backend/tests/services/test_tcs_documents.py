@@ -107,7 +107,7 @@ def _email(**extra):
 
 
 def test_email_shows_tcs_line():
-    html = _email(tcs_label=LABEL, tcs_amount="2,360.00")
+    html = _email(tcs_label=LABEL, tcs_amount="₹2,360.00")
     assert LABEL in html and "₹2,360.00" in html
 
 
